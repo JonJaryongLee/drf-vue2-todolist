@@ -13,15 +13,21 @@
       <div class="loading-wrapper" v-if="isLoading">
         <b-spinner label="Spinning"></b-spinner>
       </div>
-      <div class="todos-wrapper" v-else>
+      <div class="todos-wrapper" v-else-if="todos.length">
         <b-list-group>
-          <b-list-group-item v-for="todo in filteredTodos" :key="todo.id">
-            <span :class="{ done: todo.is_completed }">{{ todo.title }}</span>
+          <b-list-group-item class="item-container" v-for="todo in filteredTodos" :key="todo.id">
+            <b-form-checkbox v-model="todo.is_completed" @change="changeCompleted(todo)">
+              <span :class="{ done: todo.is_completed }">{{ todo.title }}</span>
+            </b-form-checkbox>
+            <b-button-close class="close-btn" @click="deleteTodo(todo.id)"></b-button-close>
           </b-list-group-item>
         </b-list-group>
         <b-button class="toggle-btn" variant="primary" @click="hideCompleted = !hideCompleted">
           {{ hideCompleted ? "전체" : "완료된 항목 숨기기" }}
         </b-button>
+      </div>
+      <div>
+        할 일이 없습니다.
       </div>
     </main>
   </div>
@@ -29,6 +35,7 @@
 
 <script>
 import axios from "axios";
+import { onErrorCaptured } from "vue";
 export default {
   data() {
     return {
@@ -54,11 +61,13 @@ export default {
   methods: {
     async getTodos() {
       try {
-        const response = await axios.get(`${this.URL}/todos`);
+        const response = await axios.get(`${this.URL}/todos/`);
         this.todos = response.data;
-        console.log(this.todos);
       } catch (error) {
-        console.error;
+        console.error(error);
+        if(error.response.status === 404) {
+          this.todos = [];
+        }
       }
     },
     async addTodo() {
@@ -68,13 +77,36 @@ export default {
       this.isLoading = true;
       try {
         await axios.post(`${this.URL}/todos/`, {
-          title: `${this.userInput}`,
+          title: this.userInput,
         });
-      } catch(error) {
-        console.log(error);
+      } catch (error) {
+        console.error(error);
       }
       this.getTodos();
       this.userInput = "";
+      this.isLoading = false;
+    },
+    async changeCompleted(todo) {
+      this.isLoading = true;
+      try {
+        await axios.patch(`${this.URL}/todos/${todo.id}/`, {
+          title: todo.title,
+          is_completed: todo.is_completed,
+        })
+      } catch (error) {
+        console.error(error);
+      }
+      this.getTodos();
+      this.isLoading = false;
+    },
+    async deleteTodo(id) {
+      this.isLoading = true;
+      try {
+        await axios.delete(`${this.URL}/todos/${id}/`);
+      } catch (error) {
+        console.error(error);
+      }
+      this.getTodos();
       this.isLoading = false;
     }
   },
@@ -116,5 +148,10 @@ export default {
 
 .toggle-btn {
   margin-top: 1rem;
+}
+
+.item-container {
+  display: flex;
+  justify-content: space-between;
 }
 </style>
